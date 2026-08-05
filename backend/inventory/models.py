@@ -43,6 +43,14 @@ class StockMovement(models.Model):
         RESTOCK = 'restock', 'Restock'
         ADJUSTMENT = 'adjustment', 'Adjustment'
         CANCELLATION = 'cancellation', 'Cancellation'
+    
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='stock_movements',
+    )
 
     product = models.ForeignKey(
         Product,
