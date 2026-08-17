@@ -7,9 +7,11 @@ from rest_framework_simplejwt.views import (
 from rest_framework.routers import DefaultRouter
 
 from inventory.views import ProductViewSet
+from orders.views import OrderViewSet
 
 router = DefaultRouter()
 router.register('products', ProductViewSet, basename='product')
+router.register('orders', OrderViewSet, basename='order')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
