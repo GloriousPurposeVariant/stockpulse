@@ -36,7 +36,6 @@ class Order(models.Model):
     )
     idempotency_key = models.CharField(
         max_length=64,
-        unique=True,
         null=True,
         blank=True,
         help_text='Client-supplied key. A retry carrying a key already seen '
@@ -49,6 +48,12 @@ class Order(models.Model):
         ordering = ('-created_at',)
         indexes = (
             models.Index(fields=('status', '-created_at')),
+        )
+        constraints = (
+            models.UniqueConstraint(
+                fields=('customer', 'idempotency_key'),
+                name='order_unique_customer_idempotency_key',
+            ),
         )
 
     def __str__(self):
