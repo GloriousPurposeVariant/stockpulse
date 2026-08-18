@@ -1,0 +1,8 @@
+line-length = 100
+extend-exclude = ["*/migrations/*"]
+
+[lint]
+select = ["E", "F", "I", "UP"]
+# RUF012 flags Django/DRF Meta attributes (fields, list_display, extra_kwargs)
+# which are framework conventions, not mutable-default bugs.
+ignore = ["RUF012"]

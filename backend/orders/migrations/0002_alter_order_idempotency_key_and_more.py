@@ -5,20 +5,27 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('orders', '0001_initial'),
+        ("orders", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='order',
-            name='idempotency_key',
-            field=models.CharField(blank=True, help_text='Client-supplied key. A retry carrying a key already seen returns the original order instead of creating a second one.', max_length=64, null=True),
+            model_name="order",
+            name="idempotency_key",
+            field=models.CharField(
+                blank=True,
+                help_text="Client-supplied key. A retry carrying a key already seen returns the original order instead of creating a second one.",
+                max_length=64,
+                null=True,
+            ),
         ),
         migrations.AddConstraint(
-            model_name='order',
-            constraint=models.UniqueConstraint(fields=('customer', 'idempotency_key'), name='order_unique_customer_idempotency_key'),
+            model_name="order",
+            constraint=models.UniqueConstraint(
+                fields=("customer", "idempotency_key"),
+                name="order_unique_customer_idempotency_key",
+            ),
         ),
     ]
