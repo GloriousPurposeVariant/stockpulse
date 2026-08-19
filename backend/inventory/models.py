@@ -18,16 +18,16 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ('sku',)
+        ordering = ("sku",)
         constraints = (
             models.CheckConstraint(
                 condition=models.Q(price__gte=0),
-                name='product_price_non_negative',
+                name="product_price_non_negative",
             ),
         )
 
     def __str__(self):
-        return f'{self.sku} — {self.name}'
+        return f"{self.sku} — {self.name}"
 
 
 class StockMovement(models.Model):
@@ -39,41 +39,39 @@ class StockMovement(models.Model):
     """
 
     class Reason(models.TextChoices):
-        ORDER = 'order', 'Order'
-        RESTOCK = 'restock', 'Restock'
-        ADJUSTMENT = 'adjustment', 'Adjustment'
-        CANCELLATION = 'cancellation', 'Cancellation'
-    
+        ORDER = "order", "Order"
+        RESTOCK = "restock", "Restock"
+        ADJUSTMENT = "adjustment", "Adjustment"
+        CANCELLATION = "cancellation", "Cancellation"
+
     order = models.ForeignKey(
-        'orders.Order',
+        "orders.Order",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='stock_movements',
+        related_name="stock_movements",
     )
 
     product = models.ForeignKey(
         Product,
         on_delete=models.PROTECT,
-        related_name='movements',
+        related_name="movements",
     )
     delta = models.IntegerField(
-        help_text='Signed change in units: negative for a sale, positive for a restock.',
+        help_text="Signed change in units: negative for a sale, positive for a restock.",
     )
     reason = models.CharField(max_length=32, choices=Reason.choices)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ('-created_at',)
-        indexes = (
-            models.Index(fields=('product', '-created_at')),
-        )
+        ordering = ("-created_at",)
+        indexes = (models.Index(fields=("product", "-created_at")),)
         constraints = (
             models.CheckConstraint(
                 condition=~models.Q(delta=0),
-                name='stockmovement_delta_non_zero',
+                name="stockmovement_delta_non_zero",
             ),
         )
 
     def __str__(self):
-        return f'{self.product.sku} {self.delta:+d} ({self.reason})'
+        return f"{self.product.sku} {self.delta:+d} ({self.reason})"

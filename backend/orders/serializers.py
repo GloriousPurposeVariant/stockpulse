@@ -5,57 +5,57 @@ from .models import Order, OrderItem
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product_sku = serializers.CharField(source='product.sku', read_only=True)
-    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
     subtotal = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
 
     class Meta:
         model = OrderItem
         fields = (
-            'id',
-            'product',
-            'product_sku',
-            'product_name',
-            'quantity',
-            'unit_price',
-            'subtotal',
+            "id",
+            "product",
+            "product_sku",
+            "product_name",
+            "quantity",
+            "unit_price",
+            "subtotal",
         )
         # unit_price is copied from the product at creation. Accepting it from
         # the client would let anyone name their own price.
-        read_only_fields = ('unit_price',)
+        read_only_fields = ("unit_price",)
         extra_kwargs = {
-            'quantity': {'min_value': 1},
+            "quantity": {"min_value": 1},
         }
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
     total = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
-    customer = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    customer = serializers.SlugRelatedField(slug_field="username", read_only=True)
 
     class Meta:
         model = Order
         fields = (
-            'id',
-            'reference',
-            'customer',
-            'status',
-            'items',
-            'total',
-            'created_at',
+            "id",
+            "reference",
+            "customer",
+            "status",
+            "items",
+            "total",
+            "created_at",
         )
         # Everything the pipeline owns. A client states what it wants; the
         # server decides the identity, the owner and the state.
-        read_only_fields = ('reference', 'status', 'created_at')
+        read_only_fields = ("reference", "status", "created_at")
 
     def validate_items(self, items):
         if not items:
-            raise serializers.ValidationError('An order must contain at least one item.')
+            raise serializers.ValidationError("An order must contain at least one item.")
 
-        products = [item['product'] for item in items]
+        products = [item["product"] for item in items]
         if len(products) != len(set(products)):
             raise serializers.ValidationError(
-                'Each product may appear only once. Combine the quantities instead.'
+                "Each product may appear only once. Combine the quantities instead."
             )
 
         # Advisory only. Stock can be taken by another order between this check
@@ -63,24 +63,24 @@ class OrderSerializer(serializers.ModelSerializer):
         # the locked read in the processing task. This exists to turn the
         # common case into a clear 400 instead of a failed order.
         for item in items:
-            product = item['product']
-            if item['quantity'] > product.quantity:
+            product = item["product"]
+            if item["quantity"] > product.quantity:
                 raise serializers.ValidationError(
-                    f'Only {product.quantity} unit(s) of {product.sku} are available.'
+                    f"Only {product.quantity} unit(s) of {product.sku} are available."
                 )
 
         return items
 
     @transaction.atomic
     def create(self, validated_data):
-        items_data = validated_data.pop('items')
+        items_data = validated_data.pop("items")
         order = Order.objects.create(**validated_data)
         OrderItem.objects.bulk_create(
             OrderItem(
                 order=order,
-                product=item['product'],
-                quantity=item['quantity'],
-                unit_price=item['product'].price,
+                product=item["product"],
+                quantity=item["quantity"],
+                unit_price=item["product"].price,
             )
             for item in items_data
         )

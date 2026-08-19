@@ -6,7 +6,7 @@ from django.db import models
 
 
 def generate_reference():
-    return f'ORD-{uuid4().hex[:10].upper()}'
+    return f"ORD-{uuid4().hex[:10].upper()}"
 
 
 class Order(models.Model):
@@ -17,17 +17,17 @@ class Order(models.Model):
     """
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        PROCESSING = 'processing', 'Processing'
-        COMPLETED = 'completed', 'Completed'
-        FAILED = 'failed', 'Failed'
-        CANCELLED = 'cancelled', 'Cancelled'
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
 
     reference = models.CharField(max_length=32, unique=True, default=generate_reference)
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name='orders',
+        related_name="orders",
     )
     status = models.CharField(
         max_length=16,
@@ -36,27 +36,30 @@ class Order(models.Model):
     )
     idempotency_key = models.CharField(
         max_length=64,
-        unique=True,
         null=True,
         blank=True,
-        help_text='Client-supplied key. A retry carrying a key already seen '
-                  'returns the original order instead of creating a second one.',
+        help_text="Client-supplied key. A retry carrying a key already seen "
+        "returns the original order instead of creating a second one.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ('-created_at',)
-        indexes = (
-            models.Index(fields=('status', '-created_at')),
+        ordering = ("-created_at",)
+        indexes = (models.Index(fields=("status", "-created_at")),)
+        constraints = (
+            models.UniqueConstraint(
+                fields=("customer", "idempotency_key"),
+                name="order_unique_customer_idempotency_key",
+            ),
         )
 
     def __str__(self):
-        return f'{self.reference} ({self.status})'
+        return f"{self.reference} ({self.status})"
 
     @property
     def total(self):
-        return sum((item.subtotal for item in self.items.all()), Decimal('0.00'))
+        return sum((item.subtotal for item in self.items.all()), Decimal("0.00"))
 
 
 class OrderItem(models.Model):
@@ -70,12 +73,12 @@ class OrderItem(models.Model):
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,
-        related_name='items',
+        related_name="items",
     )
     product = models.ForeignKey(
-        'inventory.Product',
+        "inventory.Product",
         on_delete=models.PROTECT,
-        related_name='order_items',
+        related_name="order_items",
     )
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -83,21 +86,21 @@ class OrderItem(models.Model):
     class Meta:
         constraints = (
             models.UniqueConstraint(
-                fields=('order', 'product'),
-                name='orderitem_unique_product_per_order',
+                fields=("order", "product"),
+                name="orderitem_unique_product_per_order",
             ),
             models.CheckConstraint(
                 condition=models.Q(quantity__gt=0),
-                name='orderitem_quantity_positive',
+                name="orderitem_quantity_positive",
             ),
             models.CheckConstraint(
                 condition=models.Q(unit_price__gte=0),
-                name='orderitem_unit_price_non_negative',
+                name="orderitem_unit_price_non_negative",
             ),
         )
 
     def __str__(self):
-        return f'{self.quantity} × {self.product.sku}'
+        return f"{self.quantity} × {self.product.sku}"
 
     @property
     def subtotal(self):

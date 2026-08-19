@@ -5,42 +5,94 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Product',
+            name="Product",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sku', models.CharField(max_length=64, unique=True)),
-                ('name', models.CharField(max_length=255)),
-                ('price', models.DecimalField(decimal_places=2, max_digits=12)),
-                ('quantity', models.PositiveIntegerField(default=0)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("sku", models.CharField(max_length=64, unique=True)),
+                ("name", models.CharField(max_length=255)),
+                ("price", models.DecimalField(decimal_places=2, max_digits=12)),
+                ("quantity", models.PositiveIntegerField(default=0)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'ordering': ('sku',),
-                'constraints': [models.CheckConstraint(condition=models.Q(('price__gte', 0)), name='product_price_non_negative')],
+                "ordering": ("sku",),
+                "constraints": [
+                    models.CheckConstraint(
+                        condition=models.Q(("price__gte", 0)),
+                        name="product_price_non_negative",
+                    )
+                ],
             },
         ),
         migrations.CreateModel(
-            name='StockMovement',
+            name="StockMovement",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('delta', models.IntegerField(help_text='Signed change in units: negative for a sale, positive for a restock.')),
-                ('reason', models.CharField(choices=[('order', 'Order'), ('restock', 'Restock'), ('adjustment', 'Adjustment'), ('cancellation', 'Cancellation')], max_length=32)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='movements', to='inventory.product')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "delta",
+                    models.IntegerField(
+                        help_text="Signed change in units: negative for a sale, positive for a restock."
+                    ),
+                ),
+                (
+                    "reason",
+                    models.CharField(
+                        choices=[
+                            ("order", "Order"),
+                            ("restock", "Restock"),
+                            ("adjustment", "Adjustment"),
+                            ("cancellation", "Cancellation"),
+                        ],
+                        max_length=32,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "product",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="movements",
+                        to="inventory.product",
+                    ),
+                ),
             ],
             options={
-                'ordering': ('-created_at',),
-                'indexes': [models.Index(fields=['product', '-created_at'], name='inventory_s_product_cfb4fb_idx')],
-                'constraints': [models.CheckConstraint(condition=models.Q(('delta', 0), _negated=True), name='stockmovement_delta_non_zero')],
+                "ordering": ("-created_at",),
+                "indexes": [
+                    models.Index(
+                        fields=["product", "-created_at"],
+                        name="inventory_s_product_cfb4fb_idx",
+                    )
+                ],
+                "constraints": [
+                    models.CheckConstraint(
+                        condition=models.Q(("delta", 0), _negated=True),
+                        name="stockmovement_delta_non_zero",
+                    )
+                ],
             },
         ),
     ]
