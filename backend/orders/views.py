@@ -20,19 +20,27 @@ class OrderViewSet(
             return queryset
         return queryset.filter(customer=self.request.user)
 
+    def _existing_order(self, user, key):
+        """Look up a previous order placed by this user under this key.
+
+        Extracted so a test can force it to miss, which is the state two
+        simultaneous requests are both in before either has committed.
+        """
+        return Order.objects.filter(customer=user, idempotency_key=key).first()
+
     def create(self, request, *args, **kwargs):
         key = request.headers.get("Idempotency-Key") or None
         if key is None:
             return super().create(request, *args, **kwargs)
 
-        existing = Order.objects.filter(customer=request.user, idempotency_key=key).first()
+        existing = self._existing_order(request.user, key)
         if existing is not None:
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
 
         try:
             return super().create(request, *args, **kwargs)
         except IntegrityError:
-            existing = Order.objects.filter(customer=request.user, idempotency_key=key).first()
+            existing = self._existing_order(request.user, key)
             if existing is None:
                 raise
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
