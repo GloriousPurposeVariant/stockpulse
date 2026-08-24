@@ -25,7 +25,7 @@ def publish(channel, event_type, data, version=1):
         "type": event_type,
         "version": version,
         "id": str(uuid.uuid4()),
-        "occurred_at": timezone.now().isoformat(),
+        "occurred_at": timezone.now(),
         "data": data,
     }
     try:
