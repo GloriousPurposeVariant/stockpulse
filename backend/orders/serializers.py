@@ -1,5 +1,9 @@
+from functools import partial
+
 from django.db import transaction
 from rest_framework import serializers
+
+import event
 
 from .models import Order, OrderItem
 
@@ -83,5 +87,21 @@ class OrderSerializer(serializers.ModelSerializer):
                 unit_price=item["product"].price,
             )
             for item in items_data
+        )
+        # Built eagerly: the callback runs after the transaction has closed, so
+        # it must not touch the database. customer_id is what lets the websocket
+        # service route this to one customer instead of broadcasting it.
+        payload = {
+            "reference": order.reference,
+            "status": order.status,
+            "customer_id": order.customer_id,
+            "total": order.total,
+            "item_count": len(items_data),
+            "created_at": order.created_at,
+        }
+        # on_commit, not a direct call: this method is atomic, and an event sent
+        # before the commit would announce an order a rollback then erases.
+        transaction.on_commit(
+            partial(event.publish, event.ORDERS_CHANNEL, event.ORDER_CREATED, payload)
         )
         return order
