@@ -1,12 +1,25 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
+import event
 from inventory.models import StockMovement
 from orders.models import Order
 from orders.views import OrderViewSet
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def published_events(monkeypatch):
+    """Replace event.publish with a Mock and hand it back for inspection.
+
+    Patched at the publish() level rather than the Redis client: this file
+    asserts *that* an event is emitted, while test_event.py owns the envelope.
+    """
+    mock = Mock()
+    monkeypatch.setattr(event, "publish", mock)
+    return mock
 
 
 def test_client_supplied_unit_price_is_ignored(client_for, customer, widget):
@@ -183,3 +196,65 @@ def test_replay_recovers_when_the_lookup_misses(client_for, customer, widget):
     assert second.status_code == 200
     assert second.data["reference"] == first.data["reference"]
     assert Order.objects.count() == 1
+
+
+def test_creating_an_order_publishes_an_event(
+    client_for, customer, widget, published_events, django_capture_on_commit_callbacks
+):
+    # Arrange
+    body = {"items": [{"product": widget.pk, "quantity": 2}]}
+
+    # Act: the event is registered with transaction.on_commit, and a test
+    # transaction is rolled back rather than committed, so without this block
+    # the callback would never run.
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client_for(customer).post("/api/orders/", body, format="json")
+
+    # Assert
+    assert response.status_code == 201
+    published_events.assert_called_once()
+
+    channel, event_type, payload = published_events.call_args.args
+    assert channel == event.ORDERS_CHANNEL
+    assert event_type == event.ORDER_CREATED
+    assert payload["reference"] == response.data["reference"]
+    # customer_id is what lets the websocket service deliver this to one
+    # customer instead of broadcasting it to everyone.
+    assert payload["customer_id"] == customer.id
+
+
+def test_a_rejected_order_publishes_nothing(
+    client_for, customer, widget, published_events, django_capture_on_commit_callbacks
+):
+    # Arrange: a quantity the serializer rejects.
+    body = {"items": [{"product": widget.pk, "quantity": 0}]}
+
+    # Act
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client_for(customer).post("/api/orders/", body, format="json")
+
+    # Assert: nothing was created, so nothing was announced.
+    assert response.status_code == 400
+    assert Order.objects.count() == 0
+    published_events.assert_not_called()
+
+
+def test_the_event_is_deferred_until_commit(
+    client_for, customer, widget, published_events, django_capture_on_commit_callbacks
+):
+    # Arrange
+    body = {"items": [{"product": widget.pk, "quantity": 2}]}
+
+    # Act: execute=False collects the on_commit callbacks without running them.
+    with django_capture_on_commit_callbacks(execute=False) as callbacks:
+        response = client_for(customer).post("/api/orders/", body, format="json")
+
+    # Assert: the order exists, but publishing was deferred rather than done.
+    # A direct event.publish() call would fail both of these.
+    assert response.status_code == 201
+    assert len(callbacks) == 1
+    published_events.assert_not_called()
+
+    # Running the captured callback is what a real COMMIT would have done.
+    callbacks[0]()
+    published_events.assert_called_once()
