@@ -9,7 +9,11 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-_redis = redis.Redis.from_url(settings.REDIS_URL)
+_redis = redis.Redis.from_url(
+    settings.REDIS_URL,
+    socket_connect_timeout=0.5,
+    socket_timeout=0.5,
+)
 
 ORDERS_CHANNEL = "stockpulse:orders"
 STOCKS_CHANNEL = "stockpulse:stock"
