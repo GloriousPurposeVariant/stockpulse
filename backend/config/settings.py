@@ -121,6 +121,14 @@ DATABASES = {
 # service subscribes to.
 REDIS_URL = env("REDIS_URL")
 
+CELERY_BROKER_URL = env("CELERY_BROKER_URL")
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = 60
+CELERY_TASK_SOFT_TIME_LIMIT = 45
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
