@@ -252,9 +252,35 @@ def test_the_event_is_deferred_until_commit(
     # Assert: the order exists, but publishing was deferred rather than done.
     # A direct event.publish() call would fail both of these.
     assert response.status_code == 201
-    assert len(callbacks) == 1
     published_events.assert_not_called()
-
-    # Running the captured callback is what a real COMMIT would have done.
-    callbacks[0]()
+    # Running the captured callbacks is what a real COMMIT would have done.
+    for callback in callbacks:
+        callback()
     published_events.assert_called_once()
+
+
+def test_creating_an_order_enqueues_processing(
+    client_for, customer, widget, enqueued_orders, django_capture_on_commit_callbacks
+):
+    # Arrange
+    body = {"items": [{"product": widget.pk, "quantity": 2}]}
+
+    # Act
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client_for(customer).post("/api/orders/", body, format="json")
+
+    # Assert: the worker was handed the id, not the object.
+    assert response.status_code == 201
+    enqueued_orders.assert_called_once_with(response.data["id"])
+
+
+def test_a_rejected_order_enqueues_nothing(
+    client_for, customer, widget, enqueued_orders, django_capture_on_commit_callbacks
+):
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client_for(customer).post(
+            "/api/orders/", {"items": [{"product": widget.pk, "quantity": 0}]}, format="json"
+        )
+
+    assert response.status_code == 400
+    enqueued_orders.assert_not_called()

@@ -6,6 +6,7 @@ from rest_framework import serializers
 import event
 
 from .models import Order, OrderItem
+from .tasks import process_order
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -104,4 +105,11 @@ class OrderSerializer(serializers.ModelSerializer):
         transaction.on_commit(
             partial(event.publish, event.ORDERS_CHANNEL, event.ORDER_CREATED, payload)
         )
+        # Also on_commit: delay() hands the id to Redis immediately, and a
+        # worker is a separate process with its own database connection. It can
+        # pop the message while this transaction is still open, and its
+        # connection cannot see rows this one has not committed yet - the task
+        # would raise Order.DoesNotExist against an order that is right there.
+        transaction.on_commit(partial(process_order.delay, order.pk))
+
         return order
