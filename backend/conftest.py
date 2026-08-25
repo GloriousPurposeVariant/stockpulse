@@ -6,8 +6,21 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+import event
 from inventory.models import Product
 from orders.tasks import process_order
+
+
+@pytest.fixture
+def published_events(monkeypatch):
+    """Replace event.publish with a Mock and hand it back for inspection.
+
+    Patched at the publish() level rather than the Redis client: this file
+    asserts *that* an event is emitted, while test_event.py owns the envelope.
+    """
+    mock = Mock()
+    monkeypatch.setattr(event, "publish", mock)
+    return mock
 
 
 @pytest.fixture(autouse=True)

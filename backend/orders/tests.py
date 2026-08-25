@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -8,18 +8,6 @@ from orders.models import Order
 from orders.views import OrderViewSet
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def published_events(monkeypatch):
-    """Replace event.publish with a Mock and hand it back for inspection.
-
-    Patched at the publish() level rather than the Redis client: this file
-    asserts *that* an event is emitted, while test_event.py owns the envelope.
-    """
-    mock = Mock()
-    monkeypatch.setattr(event, "publish", mock)
-    return mock
 
 
 def test_client_supplied_unit_price_is_ignored(client_for, customer, widget):
