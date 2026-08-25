@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import Mock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -6,6 +7,20 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from inventory.models import Product
+from orders.tasks import process_order
+
+
+@pytest.fixture(autouse=True)
+def enqueued_orders(monkeypatch):
+    """Replace process_order.delay so tests never touch the real broker.
+
+    Deliberately not CELERY_TASK_ALWAYS_EAGER: that runs the task inline
+    inside the request, which is the exact opposite of what the API
+    promises, and would make every existing order test move stock.
+    """
+    dispatch = Mock()
+    monkeypatch.setattr(process_order, "delay", dispatch)
+    return dispatch
 
 
 @pytest.fixture
