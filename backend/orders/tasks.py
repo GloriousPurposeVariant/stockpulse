@@ -1,8 +1,10 @@
 import logging
+from functools import partial
 
 from celery import shared_task
 from django.db import transaction
 
+import event
 from inventory.models import StockMovement
 from inventory.services import InsufficientStock, record_movement
 
@@ -11,12 +13,29 @@ from .models import Order
 logger = logging.getLogger(__name__)
 
 
+def _publish_status(order, reason=None):
+    payload = {
+        "id": order.pk,
+        "reference": order.reference,
+        "status": order.status,
+        "customer_id": order.customer_id,
+    }
+    if reason:
+        payload["reason"] = reason
+    transaction.on_commit(
+        partial(event.publish, event.ORDERS_CHANNEL, event.ORDER_STATUS_CHANGED, payload)
+    )
+
+
 def _mark_failed(order_id, reason):
     # The transaction that raised has been rolled back, so the status change
     # has to be written in one of its own.
     logger.warning("order %s failed: %s", order_id, reason)
     with transaction.atomic():
-        Order.objects.filter(pk=order_id).update(status=Order.Status.FAILED)
+        order = Order.objects.get(pk=order_id)
+        order.status = Order.Status.FAILED
+        order.save(update_fields=["status"])
+        _publish_status(order, reason=reason)
 
 
 @shared_task
@@ -45,6 +64,7 @@ def process_order(order_id):
         else:
             order.status = Order.Status.COMPLETED
             order.save(update_fields=["status"])
+            _publish_status(order)
 
     if failure is None:
         return f"order {order_id}: completed"

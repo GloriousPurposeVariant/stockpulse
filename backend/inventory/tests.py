@@ -5,6 +5,8 @@ from decimal import Decimal
 import pytest
 from django.db import connection
 
+import event
+
 from .models import Product, StockMovement
 from .services import InsufficientStock, record_movement
 
@@ -72,3 +74,25 @@ def test_concurrent_movements_cannot_oversell():
     product.refresh_from_db()
     assert product.quantity == 0
     assert StockMovement.objects.count() == 1
+
+
+def test_recording_a_movement_publishes_a_stock_event(
+    widget, published_events, django_capture_on_commit_callbacks
+):
+    # Arrange
+    before = widget.quantity
+
+    # Act
+    with django_capture_on_commit_callbacks(execute=True):
+        record_movement(product_id=widget.pk, delta=-4, reason=StockMovement.Reason.ORDER)
+
+    # Assert
+    published_events.assert_called_once()
+    channel, event_type, payload = published_events.call_args.args
+    assert channel == event.STOCKS_CHANNEL
+    assert event_type == event.STOCK_CHANGED
+    assert payload["sku"] == widget.sku
+    assert payload["delta"] == -4
+    # The quantity after the movement. A payload built before product.save()
+    # would ship a number that is already wrong to every connected client.
+    assert payload["quantity"] == before - 4
