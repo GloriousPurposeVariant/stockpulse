@@ -114,17 +114,18 @@ def test_a_failed_order_publishes_a_status_change(
     assert statuses[0]["status"] == Order.Status.FAILED
     assert statuses[0]["customer_id"] == customer.id
     assert "GADGET-01" in statuses[0]["reason"]
-    
+
+
 def test_a_failed_order_publishes_no_stock_events(
     customer, widget, gadget, published_events, django_capture_on_commit_callbacks
 ):
     # Arrange: the widget line can be filled, the gadget line cannot.
     order = make_order(customer, (widget, 1), (gadget, 999))
-    
+
     # Act
     with django_capture_on_commit_callbacks(execute=True):
         process_order(order.pk)
-        
+
     # Assert: the widget was deducted and then rolled back, so announcing it
     # would tell every client about a movement that does not exist.
     assert events_of_type(published_events, event.STOCK_CHANGED) == []
