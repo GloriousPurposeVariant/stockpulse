@@ -31,6 +31,16 @@ def widget(db):
 
 
 @pytest.fixture
+def gadget(db):
+    return Product.objects.create(
+        sku="GADGET-01",
+        name="Gadget",
+        price=Decimal("5.00"),
+        quantity=10,
+    )
+
+
+@pytest.fixture
 def client_for():
     """Return a factory that builds an APIClient authenticated as a given user."""
 
