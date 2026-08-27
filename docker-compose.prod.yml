@@ -1,0 +1,112 @@
+name: stockpulse
+
+# A YAML anchor: define once, reuse below with <<: *django. All three Django
+# roles run the same image with the same configuration and differ only in the
+# command they are given.
+x-django: &django
+  build: ./backend
+  image: stockpulse-backend:latest
+  env_file: .env
+  environment:
+    # These override what .env says. Hostnames are a property of the
+    # deployment topology, which is what this file describes - .env holds
+    # secrets, not addresses. Inside the network, service names are the hosts.
+    DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: redis://redis:6379/1
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # appendonly: db 1 holds accepted orders that have not been processed yet.
+    # A restart without persistence loses every one of them, silently.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Runs once per deploy and exits. Migrations must finish before any worker or
+  # web process starts, and running them from three services at once would race.
+  init:
+    <<: *django
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput"
+    volumes:
+      - staticfiles:/app/staticfiles
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    <<: *django
+    volumes:
+      - staticfiles:/app/staticfiles
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    <<: *django
+    # No --pool=solo: that was a Windows workaround. On Linux the default
+    # prefork pool works, with two child processes.
+    command: ["celery", "-A", "config", "worker", "--loglevel=info", "--concurrency=2"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ws-service:
+    build: ./ws-service
+    image: stockpulse-ws:latest
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    build: ./nginx
+    image: stockpulse-nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      # Read-only: nginx serves these files and has no business writing them.
+      - staticfiles:/app/staticfiles:ro
+    depends_on:
+      - backend
+      - ws-service
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  staticfiles:
