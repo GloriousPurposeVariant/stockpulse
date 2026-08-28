@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM node:24-slim
 
 # Set before npm ci: with this in the environment, npm skips devDependencies
 # on its own, and Fastify and friends check it at runtime for their production

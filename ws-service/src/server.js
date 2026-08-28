@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { startSubscriber } from './subscriber.js';
 import websocketPlugin from '@fastify/websocket';
 import jwt from 'jsonwebtoken';
-import { register, unregister, deliver } from './connections.js';
+import { register, unregister, deliver, startHeartbeat } from './connections.js';
 
 
 const app = Fastify({ logger: true });
@@ -43,11 +43,25 @@ try {
         register(userId, socket);
         app.log.info({ userId }, "websocket connected");
 
+        // Browsers answer ping frames in their networking stack, before any
+        // JavaScript runs, so the client needs no code for this. The heartbeat
+        // reads the flag; the pong resets it.
+        socket.isAlive = true;
+        socket.on("pong", () => {
+            socket.isAlive = true;
+        });
+
+
         socket.on("close", () => {
             unregister(userId, socket);
             app.log.info({ userId }, "websocket disconnected");
         });
     });
+
+    // Nginx closes an upstream connection that has been silent for too long,
+    // and an idle websocket is silent by definition. A ping every thirty
+    // seconds keeps it open and reveals peers that have gone away.
+    const heartbeat = startHeartbeat(app);
 
     // Compose sends SIGTERM and gives us ten seconds before SIGKILL. Fastify's
     // close() runs the shutdown hooks and closes open sockets properly, so
@@ -55,6 +69,9 @@ try {
     for (const signal of ["SIGTERM", "SIGINT"]) {
         process.on(signal, async () => {
             app.log.info({ signal }, "shutting down");
+            // An uncleared interval keeps the event loop alive and the process
+            // never exits - which would turn this into a wait for SIGKILL.
+            clearInterval(heartbeat);
             await app.close();
             process.exit(0);
         });
