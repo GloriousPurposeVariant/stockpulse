@@ -91,6 +91,21 @@ SIMPLE_JWT = {
     "SIGNING_KEY": env("JWT_SIGNING_KEY"),
 }
 
+# The refresh token is the credential worth stealing: valid for a day, usable
+# from any machine, and invisible to the user if taken. httpOnly keeps it out
+# of reach of any script on the page. The access token deliberately does not
+# live here - it stays in the SPA's memory, dies with the tab, and is what the
+# websocket handshake carries.
+AUTH_COOKIE_NAME = "refresh_token"
+# Scoped so the browser attaches it only to the three endpoints that read it,
+# and to nothing else under /api/.
+AUTH_COOKIE_PATH = "/api/v1/auth/"
+# Lax rather than Strict: Strict refuses to send the cookie on a top-level
+# cross-site navigation, which is exactly what an OAuth callback from Google
+# is. Lax still blocks the cross-site POSTs that CSRF depends on.
+AUTH_COOKIE_SAMESITE = "Lax"
+AUTH_COOKIE_SECURE = not DEBUG
+
 
 TEMPLATES = [
     {

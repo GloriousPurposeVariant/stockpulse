@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from django.urls import reverse
 
 import event
 from inventory.models import StockMovement
@@ -19,7 +20,7 @@ def test_client_supplied_unit_price_is_ignored(client_for, customer, widget):
     }
 
     # Act
-    response = client_for(customer).post("/api/orders/", payload, format="json")
+    response = client_for(customer).post(reverse("order-list"), payload, format="json")
 
     # Assert: the order is created, priced from the product rather than the request.
     assert response.status_code == 201
@@ -33,7 +34,7 @@ def test_customer_sees_only_their_own_orders(client_for, customer, other_custome
     # Arrange: two customers each place an order for the same product.
     for user in (customer, other_customer):
         client_for(user).post(
-            "/api/orders/",
+            reverse("order-list"),
             {
                 "items": [{"product": widget.pk, "quantity": 1}],
             },
@@ -41,14 +42,14 @@ def test_customer_sees_only_their_own_orders(client_for, customer, other_custome
         )
 
     # Act
-    response = client_for(customer).get("/api/orders/")
+    response = client_for(customer).get(reverse("order-list"))
 
     # Assert: the first customer sees only their own order.
     assert response.status_code == 200
     assert response.data["count"] == 1
     assert response.data["results"][0]["customer"] == customer.username
 
-    response = client_for(other_customer).get("/api/orders/")
+    response = client_for(other_customer).get(reverse("order-list"))
     assert response.status_code == 200
     assert response.data["count"] == 1
     assert response.data["results"][0]["customer"] == other_customer.username
@@ -64,7 +65,7 @@ def test_placing_an_order_does_not_move_stock(client_for, customer, widget):
     before = widget.quantity
 
     # Act
-    response = client_for(customer).post("/api/orders/", payload, format="json")
+    response = client_for(customer).post(reverse("order-list"), payload, format="json")
 
     # Assert: the order is created, but the product's stock is unchanged.
     assert response.status_code == 201
@@ -80,11 +81,11 @@ def test_another_user_order_returns_404(client_for, customer, other_customer, wi
             {"product": widget.pk, "quantity": 2},
         ],
     }
-    response = client_for(customer).post("/api/orders/", payload, format="json")
+    response = client_for(customer).post(reverse("order-list"), payload, format="json")
 
     # Act: another user tries to retrieve that order.
     order_id = response.data["id"]
-    response = client_for(other_customer).get(f"/api/orders/{order_id}/")
+    response = client_for(other_customer).get(reverse("order-detail", args=[order_id]))
 
     assert response.status_code == 404
 
@@ -96,8 +97,8 @@ def test_replayed_request_returns_the_original_order(client_for, customer, widge
     headers = {"Idempotency-Key": "test-idempotency-key"}
 
     # Act: the same request, sent twice
-    first = client.post("/api/orders/", payload, format="json", headers=headers)
-    second = client.post("/api/orders/", payload, format="json", headers=headers)
+    first = client.post(reverse("order-list"), payload, format="json", headers=headers)
+    second = client.post(reverse("order-list"), payload, format="json", headers=headers)
 
     # Assert: the second call replayed the first instead of creating another order
     assert first.status_code == 201
@@ -113,13 +114,13 @@ def test_different_idempotency_keys_create_separate_orders(client_for, customer,
 
     # Act: the different requests, sent with different idempotency keys
     first = client.post(
-        "/api/orders/",
+        reverse("order-list"),
         payload,
         format="json",
         headers={"Idempotency-Key": "test-idempotency-key-1"},
     )
     second = client.post(
-        "/api/orders/",
+        reverse("order-list"),
         payload,
         format="json",
         headers={"Idempotency-Key": "test-idempotency-key-2"},
@@ -141,13 +142,13 @@ def test_same_key_from_different_customers_creates_separate_orders(
 
     # Act: the different requests, sent with same idempotency keys
     first = first_client.post(
-        "/api/orders/",
+        reverse("order-list"),
         payload,
         format="json",
         headers={"Idempotency-Key": "test-idempotency-key"},
     )
     second = second_client.post(
-        "/api/orders/",
+        reverse("order-list"),
         payload,
         format="json",
         headers={"Idempotency-Key": "test-idempotency-key"},
@@ -166,7 +167,7 @@ def test_replay_recovers_when_the_lookup_misses(client_for, customer, widget):
     client = client_for(customer)
     payload = {"items": [{"product": widget.pk, "quantity": 2}]}
     headers = {"Idempotency-Key": "test-idempotency-key"}
-    first = client.post("/api/orders/", payload, format="json", headers=headers)
+    first = client.post(reverse("order-list"), payload, format="json", headers=headers)
     original = Order.objects.get(reference=first.data["reference"])
 
     # Act: replay it with the pre-flight lookup forced to miss, which is the
@@ -176,7 +177,7 @@ def test_replay_recovers_when_the_lookup_misses(client_for, customer, widget):
     # second is the real one. The insert, the unique constraint and the
     # IntegrityError it raises are all genuine.
     with patch.object(OrderViewSet, "_existing_order", side_effect=[None, original]):
-        second = client.post("/api/orders/", payload, format="json", headers=headers)
+        second = client.post(reverse("order-list"), payload, format="json", headers=headers)
 
     # Assert: the constraint rejected the duplicate and the recovery returned
     # the order that already existed.
@@ -196,7 +197,7 @@ def test_creating_an_order_publishes_an_event(
     # transaction is rolled back rather than committed, so without this block
     # the callback would never run.
     with django_capture_on_commit_callbacks(execute=True):
-        response = client_for(customer).post("/api/orders/", body, format="json")
+        response = client_for(customer).post(reverse("order-list"), body, format="json")
 
     # Assert
     assert response.status_code == 201
@@ -219,7 +220,7 @@ def test_a_rejected_order_publishes_nothing(
 
     # Act
     with django_capture_on_commit_callbacks(execute=True):
-        response = client_for(customer).post("/api/orders/", body, format="json")
+        response = client_for(customer).post(reverse("order-list"), body, format="json")
 
     # Assert: nothing was created, so nothing was announced.
     assert response.status_code == 400
@@ -235,7 +236,7 @@ def test_the_event_is_deferred_until_commit(
 
     # Act: execute=False collects the on_commit callbacks without running them.
     with django_capture_on_commit_callbacks(execute=False) as callbacks:
-        response = client_for(customer).post("/api/orders/", body, format="json")
+        response = client_for(customer).post(reverse("order-list"), body, format="json")
 
     # Assert: the order exists, but publishing was deferred rather than done.
     # A direct event.publish() call would fail both of these.
@@ -255,7 +256,7 @@ def test_creating_an_order_enqueues_processing(
 
     # Act
     with django_capture_on_commit_callbacks(execute=True):
-        response = client_for(customer).post("/api/orders/", body, format="json")
+        response = client_for(customer).post(reverse("order-list"), body, format="json")
 
     # Assert: the worker was handed the id, not the object.
     assert response.status_code == 201
@@ -267,7 +268,7 @@ def test_a_rejected_order_enqueues_nothing(
 ):
     with django_capture_on_commit_callbacks(execute=True):
         response = client_for(customer).post(
-            "/api/orders/", {"items": [{"product": widget.pk, "quantity": 0}]}, format="json"
+            reverse("order-list"), {"items": [{"product": widget.pk, "quantity": 0}]}, format="json"
         )
 
     assert response.status_code == 400
