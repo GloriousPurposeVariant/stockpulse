@@ -19,10 +19,13 @@ export default function LoginForm() {
             // status flips to authenticated, and setting state on it would warn.
         } catch (err) {
             setError(
-                err.status === 401
-                    ? "That username and password do not match."
-                    : "Could not sign in. Is the server running?",
+                err.status === 0 || err.status >= 500
+                    ? "Cannot reach the server."
+                    : err.status === 401
+                        ? "That username and password do not match."
+                        : "Something went wrong. Please try again.",
             )
+
             setBusy(false)
         }
     }

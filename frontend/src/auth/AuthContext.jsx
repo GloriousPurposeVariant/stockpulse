@@ -22,7 +22,14 @@ export function AuthProvider({ children }) {
     // already signed in, every single page load.
     const [status, setStatus] = useState("loading")
 
+    const retry = () => setStatus("loading")
+
     useEffect(() => {
+        // Only this state means "go and find out". Without the guard the
+        // effect would re-run on every status change, including the ones it
+        // causes itself.
+        if (status !== "loading") return
+
         let cancelled = false
 
         const restore = async () => {
@@ -35,8 +42,13 @@ export function AuthProvider({ children }) {
                     setUser(me)
                     setStatus("authenticated")
                 }
-            } catch {
-                if (!cancelled) {
+            } catch (err) {
+                if (cancelled) return
+                if (err.status === 0 || err.status >= 500) {
+                    // We could not ask. Saying "signed out" would be a guess, and the
+                    // wrong one most of the time.
+                    setStatus("unreachable")
+                } else {
                     setUser(null)
                     setStatus("anonymous")
                 }
@@ -48,7 +60,7 @@ export function AuthProvider({ children }) {
         return () => {
             cancelled = true
         }
-    }, [])
+    }, [status])
 
     const login = async (username, password) => {
         const { access } = await api("/api/v1/auth/login/", {
@@ -71,7 +83,7 @@ export function AuthProvider({ children }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, status, login, logout }}>
+        <AuthContext.Provider value={{ user, status, login, logout, retry }}>
             {children}
         </AuthContext.Provider>
     )

@@ -1,25 +1,25 @@
+import { ApiError } from "./errors.js"
 import { getAccessToken, refresh } from "./tokens.js"
-
-export class ApiError extends Error {
-  constructor(status, data) {
-    super(`Request failed with ${status}`)
-    this.status = status
-    this.data = data
-  }
-}
 
 export const api = async (path, options = {}, allowRetry = true) => {
   const token = getAccessToken()
 
-  const response = await fetch(path, {
-    ...options,
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
+  let response
+  try {
+    response = await fetch(path, {
+      ...options,
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    })
+  } catch {
+    // fetch rejects only when nothing came back at all.
+    throw new ApiError(0, null)
+  }
+
 
   // The access token expired. Get a new one and replay the request once -
   // never twice, or a genuinely signed-out user loops until the stack blows.

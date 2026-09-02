@@ -1,3 +1,5 @@
+import { ApiError } from "./errors.js"
+
 // The access token lives here and nowhere else. Not localStorage, not
 // sessionStorage: anything a script can read, an injected script can steal.
 // It dies with the tab, and the httpOnly refresh cookie is what survives -
@@ -36,16 +38,31 @@ export const ensureCsrfCookie = async () => {
 let inFlight = null
 
 const requestRefresh = async () => {
-  await ensureCsrfCookie()
-  const response = await fetch("/api/v1/auth/refresh/", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: csrfHeaders(),
-  })
-  if (!response.ok) {
-    clearAccessToken()
-    throw new Error("refresh failed")
+  let response
+  try {
+    await ensureCsrfCookie()
+    response = await fetch("/api/v1/auth/refresh/", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: csrfHeaders(),
+    })
+  } catch {
+    // Unreachable, not unauthorised. Deliberately does NOT clear the access
+    // token: the session may be perfectly valid and the server merely down.
+    throw new ApiError(0, null)
   }
+
+  if (!response.ok) {
+    // Only an auth rejection ends the session. A 500, or a 502 from nginx
+    // standing in for a dead gunicorn, means the server is unwell - not that
+    // this user is signed out. Keep the token; it may still be perfectly good.
+    if (response.status === 401 || response.status === 403) {
+      clearAccessToken()
+    }
+    throw new ApiError(response.status, null)
+  }
+
+
   const { access } = await response.json()
   setAccessToken(access)
   return access
