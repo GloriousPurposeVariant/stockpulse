@@ -76,3 +76,19 @@ export const refresh = () => {
   return inFlight
 }
 
+export const endSession = async () => {
+  await ensureCsrfCookie()
+  try {
+    await fetch("/api/v1/auth/logout/", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: csrfHeaders(),
+    })
+  } finally {
+    // Even if the request failed, this browser is done with the token. The
+    // server-side blacklist is the part that can fail; forgetting locally
+    // cannot, and must not be conditional on the network.
+    clearAccessToken()
+  }
+}
+

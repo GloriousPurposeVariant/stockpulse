@@ -41,6 +41,11 @@ DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
+# The browser's Origin is the vite dev server while Django sees itself at
+# :8000, so Django's CSRF origin check rejects the two as different sites.
+# In production nginx serves the app and the API from one origin, and this
+# list stays empty.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Application definition
 
@@ -106,6 +111,12 @@ AUTH_COOKIE_PATH = "/api/v1/auth/"
 AUTH_COOKIE_SAMESITE = "Lax"
 AUTH_COOKIE_SECURE = not DEBUG
 
+# Nginx terminates TLS and proxies plain HTTP, so without this Django believes
+# every request is insecure. It would build http:// links in redirects and
+# password-reset emails, and its CSRF origin check would compare the browser's
+# https:// Origin against an http:// self-image and reject it.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 TEMPLATES = [
     {
