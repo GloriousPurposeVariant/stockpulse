@@ -31,7 +31,7 @@ export default function LoginForm() {
     }
 
     return (
-        <form onSubmit={submit}>
+        <form className="login-form" onSubmit={submit}>
             <h1>StockPulse</h1>
 
             <label htmlFor="username">Username</label>

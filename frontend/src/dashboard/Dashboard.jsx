@@ -4,6 +4,7 @@ import { api } from "../api/client.js"
 import { useAuth } from "../auth/AuthContext.jsx"
 import OrderList from "./OrderList.jsx"
 import StockList from "./StockList.jsx"
+import OrderForm from "./OrderForm.jsx"
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
@@ -39,6 +40,10 @@ export default function Dashboard() {
     }
   }, [])
 
+  // Functional update: the 201 response is the order, so there is nothing to
+  // refetch. Newest first, matching the API's own ordering.
+  const addOrder = (order) => setOrders((current) => [order, ...current])
+
   return (
     <div className="app">
       <header>
@@ -55,9 +60,11 @@ export default function Dashboard() {
       )}
       {status === "ready" && (
         <main>
+          <OrderForm products={products} onCreated={addOrder} />
           <StockList products={products} />
           <OrderList orders={orders} />
         </main>
+
       )}
     </div>
   )

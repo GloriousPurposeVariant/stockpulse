@@ -61,12 +61,38 @@ button {
 button:hover { border-color: var(--muted); }
 button:disabled { opacity: 0.5; cursor: default; }
 
-form { max-width: 20rem; margin: 4rem auto; display: grid; gap: 0.5rem; }
-form label { font-size: 0.8rem; color: var(--muted); }
-form input {
+/* Scoped to the sign-in screen. A bare `form` selector claimed every form in
+   the app on the strength of the only one that existed at the time, and would
+   centre the order form in a 20rem column. */
+.login-form { max-width: 20rem; margin: 4rem auto; display: grid; gap: 0.5rem; }
+.login-form label { font-size: 0.8rem; color: var(--muted); }
+.login-form input {
   font: inherit; padding: 0.5rem;
   border: 1px solid var(--line); border-radius: 6px;
   background: var(--bg); color: var(--fg);
 }
-form button { margin-top: 0.5rem; }
-form [role="alert"] { color: #b91c1c; font-size: 0.875rem; margin: 0; }
+.login-form button { margin-top: 0.5rem; }
+
+/* The order form spans both dashboard columns. */
+.span-2 { grid-column: 1 / -1; }
+
+.order-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.order-form select,
+.order-form input {
+  font: inherit; padding: 0.4rem;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg); color: var(--fg);
+}
+.order-form select { flex: 1; min-width: 12rem; }
+.order-form input { width: 5rem; }
+
+.lines {
+  list-style: none; padding: 0; margin: 0.75rem 0;
+  display: grid; gap: 0.25rem; font-size: 0.875rem;
+}
+.lines li {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--line); padding-top: 0.35rem;
+}
+
+[role="alert"] { color: #b91c1c; font-size: 0.875rem; margin: 0.75rem 0 0; }
