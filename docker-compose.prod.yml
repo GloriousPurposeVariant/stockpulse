@@ -1,4 +1,4 @@
-name: stockpulse
+name: stockpulse-prod
 
 # A YAML anchor: define once, reuse below with <<: *django. All three Django
 # roles run the same image with the same configuration and differ only in the
@@ -94,7 +94,12 @@ services:
     restart: unless-stopped
 
   nginx:
-    build: ./nginx
+    build:
+      # The repo root, because this image compiles the frontend as well as
+      # carrying the config - it needs both directories in its context.
+      context: .
+      dockerfile: nginx/Dockerfile
+
     image: stockpulse-nginx:latest
     ports:
       - "80:80"
