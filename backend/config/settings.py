@@ -41,6 +41,11 @@ DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
+# The browser's Origin is the vite dev server while Django sees itself at
+# :8000, so Django's CSRF origin check rejects the two as different sites.
+# In production nginx serves the app and the API from one origin, and this
+# list stays empty.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Application definition
 
@@ -91,6 +96,27 @@ SIMPLE_JWT = {
     "SIGNING_KEY": env("JWT_SIGNING_KEY"),
 }
 
+# The refresh token is the credential worth stealing: valid for a day, usable
+# from any machine, and invisible to the user if taken. httpOnly keeps it out
+# of reach of any script on the page. The access token deliberately does not
+# live here - it stays in the SPA's memory, dies with the tab, and is what the
+# websocket handshake carries.
+AUTH_COOKIE_NAME = "refresh_token"
+# Scoped so the browser attaches it only to the three endpoints that read it,
+# and to nothing else under /api/.
+AUTH_COOKIE_PATH = "/api/v1/auth/"
+# Lax rather than Strict: Strict refuses to send the cookie on a top-level
+# cross-site navigation, which is exactly what an OAuth callback from Google
+# is. Lax still blocks the cross-site POSTs that CSRF depends on.
+AUTH_COOKIE_SAMESITE = "Lax"
+AUTH_COOKIE_SECURE = not DEBUG
+
+# Nginx terminates TLS and proxies plain HTTP, so without this Django believes
+# every request is insecure. It would build http:// links in redirects and
+# password-reset emails, and its CSRF origin check would compare the browser's
+# https:// Origin against an http:// self-image and reject it.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 TEMPLATES = [
     {
