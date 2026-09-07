@@ -68,8 +68,8 @@ export default function OrderForm({ products, onCreated }) {
       setError(
         err.status === 400
           ? // A 400 whose body did not parse leaves nothing to show, and a
-            // button that silently re-enables reads as the app ignoring you.
-            (firstMessage(err.data) ?? "Could not place the order.")
+          // button that silently re-enables reads as the app ignoring you.
+          (firstMessage(err.data) ?? "Could not place the order.")
           : err.status === 0 || err.status >= 500
             ? "Could not reach the server. Try again — the same order will not be placed twice."
             : "Could not place the order.",
@@ -134,6 +134,7 @@ export default function OrderForm({ products, onCreated }) {
       )}
 
       {error && <p role="alert">{error}</p>}
+      {lines.length === 0 && <p className="empty">Add at least one line first.</p>}
 
       <button type="button" onClick={submit} disabled={busy || lines.length === 0}>
         {busy ? "Placing…" : "Place order"}

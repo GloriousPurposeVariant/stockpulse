@@ -1,6 +1,6 @@
 import { useState } from "react"
 
-import { useAuth } from "./AuthContext.jsx"
+import { useAuth } from "./context.js"
 
 export default function LoginForm() {
     const { login } = useAuth()

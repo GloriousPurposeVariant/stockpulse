@@ -93,6 +93,10 @@ class OrderSerializer(serializers.ModelSerializer):
         # it must not touch the database. customer_id is what lets the websocket
         # service route this to one customer instead of broadcasting it.
         payload = {
+            # The client keys rows by id, the same as the REST list does.
+            # Without it a created order cannot be rendered, let alone matched
+            # against the status change that follows it.
+            "id": order.pk,
             "reference": order.reference,
             "status": order.status,
             "customer_id": order.customer_id,

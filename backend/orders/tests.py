@@ -207,6 +207,10 @@ def test_creating_an_order_publishes_an_event(
     assert channel == event.ORDERS_CHANNEL
     assert event_type == event.ORDER_CREATED
     assert payload["reference"] == response.data["reference"]
+    # The websocket client keys rows by id, exactly as the REST list does.
+    # Without it a created order cannot be rendered, let alone matched
+    # against the status change that follows it.
+    assert payload["id"] == response.data["id"]
     # customer_id is what lets the websocket service deliver this to one
     # customer instead of broadcasting it to everyone.
     assert payload["customer_id"] == customer.id

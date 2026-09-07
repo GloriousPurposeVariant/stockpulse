@@ -1,19 +1,9 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 import { api } from "../api/client.js";
 import { clearAccessToken, endSession, refresh, setAccessToken } from "../api/tokens.js";
+import { AuthContext } from "./context.js"
 
-const AuthContext = createContext();
-
-export const useAuth = () => {
-    const value = useContext(AuthContext)
-    if (!value) {
-        // Without this you get "cannot read property user of null" from somewhere
-        // three components away, rather than the actual mistake.
-        throw new Error("useAuth must be called inside <AuthProvider>")
-    }
-    return value
-}
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)

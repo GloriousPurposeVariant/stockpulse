@@ -1,4 +1,5 @@
-import { AuthProvider, useAuth } from "./auth/AuthContext.jsx"
+import { AuthProvider } from "./auth/AuthContext.jsx"
+import { useAuth } from "./auth/context.js"
 import LoginForm from "./auth/LoginForm.jsx"
 import Dashboard from "./dashboard/Dashboard.jsx"
 

@@ -32,7 +32,7 @@ export default function OrderList({ orders }) {
                     {STATUS_LABELS[order.status] ?? order.status}
                   </span>
                 </td>
-                <td className="num">{order.items.length}</td>
+                <td className="num">{order.items_count}</td>
                 <td className="num">{order.total}</td>
                 <td>{new Date(order.created_at).toLocaleString()}</td>
               </tr>

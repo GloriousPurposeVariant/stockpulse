@@ -96,3 +96,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 }
 
 [role="alert"] { color: #b91c1c; font-size: 0.875rem; margin: 0.75rem 0 0; }
+
+.dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; display: inline-block; }
+.dot-live { background: #15803d; }
+.dot-reconnecting { background: #a16207; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
